@@ -15,7 +15,7 @@ app =
         , update = update
         , updateFromFrontend = updateFromFrontend
         , subscriptions =
-            \m ->
+            \_ ->
                 Lamdera.onDisconnect PlayerDisconnected
         }
 
@@ -46,22 +46,43 @@ update msg model =
 
 
 updateFromFrontend : SessionId -> ClientId -> ToBackend -> Model -> ( Model, Cmd BackendMsg )
-updateFromFrontend sessionId clientId msg model =
+updateFromFrontend _ clientId msg model =
     case msg of
         PlayerConnecting name ->
             let
+                playerExists =
+                    List.any identity
+                        (Dict.values
+                            (Dict.map (doesPlayerNameExist name) model.games)
+                        )
+                        || List.any (\p -> p.name == name) model.lobby
+
                 player =
                     Player name clientId
             in
-            ( { model | lobby = player :: model.lobby }
-            , Lamdera.sendToFrontend clientId
-                (PlayerConnected
-                    { connectedPlayer = player
-                    , otherPlayersInLobby = model.lobby
-                    , gamesInProgress = Dict.map getPlayersFromGameState model.games
-                    }
+            if playerExists then
+                ( model, Lamdera.sendToFrontend clientId PlayerNameTaken )
+
+            else
+                let
+                    newLobby =
+                        player :: model.lobby
+                in
+                ( { model | lobby = newLobby }
+                , Lamdera.sendToFrontend clientId
+                    (PlayerConnected player
+                        { players = newLobby
+                        , gamesInProgress = Dict.map getPlayersFromGameState model.games
+                        }
+                    )
                 )
-            )
+
+
+doesPlayerNameExist : String -> GameId -> GameState -> Bool
+doesPlayerNameExist n gId gs =
+    gs
+        |> getPlayersFromGameState gId
+        |> List.any (\p -> n == p.name)
 
 
 isPlayerInGame : ClientId -> GameId -> GameState -> Bool

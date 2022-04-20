@@ -77,13 +77,19 @@ type GameState
     | GameOver ( Team, Score ) ( Team, Score )
 
 
+type alias Lobby =
+    { players : List Player
+    , gamesInProgress : Dict String (List Player)
+    }
+
+
+type ConnectingError
+    = UsernameTaken
+
+
 type FrontendState
-    = Connecting String
-    | InLobby
-        { me : Player
-        , otherPlayers : List Player
-        , gamesInProgress : Dict String (List Player)
-        }
+    = Connecting String (Maybe ConnectingError)
+    | InLobby Player Lobby
     | InGame
         { me : Player
         , gameId : String
@@ -119,8 +125,6 @@ type BackendMsg
 
 
 type ToFrontend
-    = PlayerConnected
-        { connectedPlayer : Player
-        , otherPlayersInLobby : List Player
-        , gamesInProgress : Dict GameId (List Player)
-        }
+    = PlayerConnected Player Lobby
+    | PlayerNameTaken
+    | LobbyUpdated Lobby
